@@ -10,6 +10,7 @@
     let wordWrap = false;
     let fontSize = 13;
     let autoSaveTimer = null;
+    let previewMode = 'off'; // 'off', 'split', 'full'
     const FONT_SIZE_MIN = 8;
     const FONT_SIZE_MAX = 32;
 
@@ -28,6 +29,7 @@
     const replaceInput = $('#replace-input');
     const findCount = $('#find-count');
     const fileInput = $('#file-input');
+    const previewPane = $('#preview-pane');
 
     // ===== Tab Management =====
     function createTab(name = null, content = '') {
@@ -106,6 +108,8 @@
 
         updateLineNumbers();
         updateStatusBar();
+        updatePreviewLayout();
+        renderPreview();
     }
 
     function closeTab(id) {
@@ -313,6 +317,7 @@
         }
         updateLineNumbers();
         updateStatusBar();
+        renderPreview();
         scheduleAutoSave();
     }
 
@@ -349,6 +354,73 @@
     function decreaseFontSize() {
         setFontSize(fontSize - 1);
         showToast(`글꼴 크기: ${fontSize}px`);
+    }
+
+    // ===== Markdown Preview =====
+    function togglePreview() {
+        if (previewMode === 'off') {
+            previewMode = 'split';
+            showToast('분할 프리뷰 모드');
+        } else if (previewMode === 'split') {
+            previewMode = 'full';
+            showToast('전체 프리뷰 모드');
+        } else {
+            previewMode = 'off';
+            showToast('편집 모드');
+        }
+        updatePreviewLayout();
+        renderPreview();
+    }
+
+    function updatePreviewLayout() {
+        const btn = $('#btn-preview');
+        btn.classList.toggle('active', previewMode !== 'off');
+
+        if (previewMode === 'off') {
+            editor.style.display = '';
+            lineNumbers.style.display = wordWrap ? 'none' : '';
+            previewPane.classList.add('hidden');
+            previewPane.classList.remove('fullscreen');
+        } else if (previewMode === 'split') {
+            editor.style.display = '';
+            lineNumbers.style.display = wordWrap ? 'none' : '';
+            previewPane.classList.remove('hidden');
+            previewPane.classList.remove('fullscreen');
+        } else {
+            editor.style.display = 'none';
+            lineNumbers.style.display = 'none';
+            previewPane.classList.remove('hidden');
+            previewPane.classList.add('fullscreen');
+        }
+    }
+
+    function renderPreview() {
+        if (previewMode === 'off') return;
+
+        const content = editor.value;
+        const tab = getTab(activeTabId);
+        const name = tab ? tab.name.toLowerCase() : '';
+
+        if (name.endsWith('.json')) {
+            try {
+                const parsed = JSON.parse(content);
+                previewPane.innerHTML = '<pre><code>' + escapeHtml(JSON.stringify(parsed, null, 2)) + '</code></pre>';
+            } catch (e) {
+                previewPane.innerHTML = '<div style="color:var(--danger);padding:12px;">⚠️ JSON 파싱 오류: ' + escapeHtml(e.message) + '</div>' +
+                    '<pre><code>' + escapeHtml(content) + '</code></pre>';
+            }
+        } else if (name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.mdx')) {
+            if (typeof marked !== 'undefined') {
+                marked.setOptions({ breaks: true, gfm: true });
+                previewPane.innerHTML = marked.parse(content);
+            } else {
+                previewPane.innerHTML = '<p style="color:var(--warning);">marked.js 로딩 중...</p>';
+            }
+        } else if (name.endsWith('.html') || name.endsWith('.htm')) {
+            previewPane.innerHTML = content;
+        } else {
+            previewPane.innerHTML = '<pre style="white-space:pre-wrap;word-wrap:break-word;">' + escapeHtml(content) + '</pre>';
+        }
     }
 
     // ===== Find & Replace =====
@@ -662,6 +734,9 @@
         } else if (ctrl && e.key === '-') {
             e.preventDefault();
             decreaseFontSize();
+        } else if (ctrl && e.key === 'p') {
+            e.preventDefault();
+            togglePreview();
         } else if (e.key === 'Escape') {
             if (!findPanel.classList.contains('hidden')) {
                 findPanel.classList.add('hidden');
@@ -682,6 +757,7 @@
         $('#btn-theme').addEventListener('click', toggleTheme);
         $('#btn-font-increase').addEventListener('click', increaseFontSize);
         $('#btn-font-decrease').addEventListener('click', decreaseFontSize);
+        $('#btn-preview').addEventListener('click', togglePreview);
 
         // File input
         fileInput.addEventListener('change', handleFileSelect);
