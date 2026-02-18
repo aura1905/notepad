@@ -8,7 +8,10 @@
     let activeTabId = null;
     let tabCounter = 0;
     let wordWrap = false;
+    let fontSize = 13;
     let autoSaveTimer = null;
+    const FONT_SIZE_MIN = 8;
+    const FONT_SIZE_MAX = 32;
 
     // ===== DOM Elements =====
     const $ = (sel) => document.querySelector(sel);
@@ -328,6 +331,26 @@
         showToast(wordWrap ? '자동 줄 바꿈 켜짐' : '자동 줄 바꿈 꺼짐');
     }
 
+    // ===== Font Size =====
+    function setFontSize(size) {
+        fontSize = Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, size));
+        editor.style.fontSize = fontSize + 'px';
+        lineNumbers.style.fontSize = fontSize + 'px';
+        $('#font-size-display').textContent = fontSize + 'px';
+        updateLineNumbers();
+        scheduleAutoSave();
+    }
+
+    function increaseFontSize() {
+        setFontSize(fontSize + 1);
+        showToast(`글꼴 크기: ${fontSize}px`);
+    }
+
+    function decreaseFontSize() {
+        setFontSize(fontSize - 1);
+        showToast(`글꼴 크기: ${fontSize}px`);
+    }
+
     // ===== Find & Replace =====
     function toggleFindPanel() {
         const hidden = findPanel.classList.toggle('hidden');
@@ -515,7 +538,8 @@
             })),
             activeTabId,
             tabCounter,
-            wordWrap
+            wordWrap,
+            fontSize
         };
         try {
             localStorage.setItem('notepad-data', JSON.stringify(data));
@@ -541,6 +565,7 @@
 
             tabCounter = data.tabCounter || 0;
             wordWrap = data.wordWrap || false;
+            fontSize = data.fontSize || 13;
 
             data.tabs.forEach(t => {
                 const tab = {
@@ -562,6 +587,9 @@
                 $('#btn-wordwrap').classList.add('active');
                 lineNumbers.style.display = 'none';
             }
+
+            // Restore font size
+            setFontSize(fontSize);
 
             // Restore active tab
             const targetId = data.activeTabId;
@@ -628,6 +656,12 @@
         } else if (ctrl && e.key === 'w') {
             e.preventDefault();
             if (activeTabId) closeTab(activeTabId);
+        } else if (ctrl && (e.key === '=' || e.key === '+')) {
+            e.preventDefault();
+            increaseFontSize();
+        } else if (ctrl && e.key === '-') {
+            e.preventDefault();
+            decreaseFontSize();
         } else if (e.key === 'Escape') {
             if (!findPanel.classList.contains('hidden')) {
                 findPanel.classList.add('hidden');
@@ -646,6 +680,8 @@
         $('#btn-wordwrap').addEventListener('click', toggleWordWrap);
         $('#btn-add-tab').addEventListener('click', newFile);
         $('#btn-theme').addEventListener('click', toggleTheme);
+        $('#btn-font-increase').addEventListener('click', increaseFontSize);
+        $('#btn-font-decrease').addEventListener('click', decreaseFontSize);
 
         // File input
         fileInput.addEventListener('change', handleFileSelect);
