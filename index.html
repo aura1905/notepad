@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="웹 기반 메모장 - 다중 탭, 자동 저장, 파일 열기/저장을 지원하는 모던 텍스트 에디터">
+    <title>Aura Notepad</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Toolbar -->
+        <div id="toolbar">
+            <div class="toolbar-left">
+                <div class="app-logo">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                    </svg>
+                    <span>Aura Notepad</span>
+                </div>
+                <div class="toolbar-buttons">
+                    <button id="btn-new" class="toolbar-btn" title="새로 만들기 (Ctrl+N)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="12" y1="18" x2="12" y2="12" />
+                            <line x1="9" y1="15" x2="15" y2="15" />
+                        </svg>
+                        <span>새로 만들기</span>
+                    </button>
+                    <button id="btn-open" class="toolbar-btn" title="열기 (Ctrl+O)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <span>열기</span>
+                    </button>
+                    <button id="btn-save" class="toolbar-btn" title="저장 (Ctrl+S)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                        <span>저장</span>
+                    </button>
+                    <div class="toolbar-divider"></div>
+                    <button id="btn-find" class="toolbar-btn" title="찾기/바꾸기 (Ctrl+H)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <span>찾기</span>
+                    </button>
+                    <button id="btn-wordwrap" class="toolbar-btn" title="자동 줄 바꿈 토글">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M3 6h18" />
+                            <path d="M3 12h15a3 3 0 1 1 0 6h-4" />
+                            <polyline points="16 16 14 18 16 20" />
+                            <path d="M3 18h7" />
+                        </svg>
+                        <span>줄바꿈</span>
+                    </button>
+                </div>
+            </div>
+            <div class="toolbar-right">
+                <button id="btn-theme" class="toolbar-btn icon-only" title="테마 전환">
+                    <svg id="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                    <svg id="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" style="display:none">
+                        <circle cx="12" cy="12" r="5" />
+                        <line x1="12" y1="1" x2="12" y2="3" />
+                        <line x1="12" y1="21" x2="12" y2="23" />
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                        <line x1="1" y1="12" x2="3" y2="12" />
+                        <line x1="21" y1="12" x2="23" y2="12" />
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Bar -->
+        <div id="tab-bar">
+            <div id="tabs-container"></div>
+            <button id="btn-add-tab" class="tab-add-btn" title="새 탭 (Ctrl+N)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Find & Replace Panel -->
+        <div id="find-panel" class="hidden">
+            <div class="find-row">
+                <input type="text" id="find-input" placeholder="찾기..." spellcheck="false">
+                <span id="find-count" class="find-count">0개 결과</span>
+                <button id="find-prev" class="find-btn" title="이전">▲</button>
+                <button id="find-next" class="find-btn" title="다음">▼</button>
+                <button id="find-close" class="find-btn close" title="닫기">✕</button>
+            </div>
+            <div class="find-row">
+                <input type="text" id="replace-input" placeholder="바꾸기..." spellcheck="false">
+                <button id="replace-one" class="find-btn text" title="바꾸기">바꾸기</button>
+                <button id="replace-all" class="find-btn text" title="모두 바꾸기">모두</button>
+            </div>
+            <div class="find-options">
+                <label><input type="checkbox" id="find-case"> 대소문자 구분</label>
+                <label><input type="checkbox" id="find-regex"> 정규식</label>
+            </div>
+        </div>
+
+        <!-- Editor Area -->
+        <div id="editor-area">
+            <div id="line-numbers"></div>
+            <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off"
+                autocapitalize="off"></textarea>
+        </div>
+
+        <!-- Status Bar -->
+        <div id="status-bar">
+            <div class="status-left">
+                <span id="status-position">줄 1, 열 1</span>
+                <span class="status-divider">|</span>
+                <span id="status-chars">0 글자</span>
+                <span class="status-divider">|</span>
+                <span id="status-lines">0 줄</span>
+            </div>
+            <div class="status-right">
+                <span id="status-modified"></span>
+                <span id="status-encoding">UTF-8</span>
+                <span class="status-divider">|</span>
+                <span id="status-saved">자동 저장됨</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="file-input"
+        accept=".txt,.md,.json,.js,.css,.html,.xml,.csv,.log,.py,.java,.c,.cpp,.h,.ini,.cfg,.yaml,.yml,.toml" multiple
+        style="display:none">
+
+    <script src="app.js"></script>
+</body>
+
+</html>
