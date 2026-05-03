@@ -1,5 +1,20 @@
 /* ===== Aura Notepad - Main Application ===== */
 
+// ===== Firebase Config =====
+const firebaseConfig = {
+    apiKey: "AIzaSyCx9Et77K4bWe8Gt2EaFFs4x1-qgYXn4d4",
+    authDomain: "gdd-presentation-ddb3c.firebaseapp.com",
+    projectId: "gdd-presentation-ddb3c",
+    storageBucket: "gdd-presentation-ddb3c.firebasestorage.app",
+    messagingSenderId: "276123425066",
+    appId: "1:276123425066:web:390e40bb764d78fb976653",
+    measurementId: "G-46E0BQYD3C"
+};
+
+if (typeof firebase !== 'undefined') {
+    firebase.initializeApp(firebaseConfig);
+}
+
 (function () {
     'use strict';
 
@@ -13,6 +28,16 @@
     let previewMode = 'off'; // 'off', 'split', 'full'
     const FONT_SIZE_MIN = 8;
     const FONT_SIZE_MAX = 32;
+
+    // ===== Firebase / Sync State =====
+    const auth = (typeof firebase !== 'undefined') ? firebase.auth() : null;
+    const db = (typeof firebase !== 'undefined') ? firebase.firestore() : null;
+    const clientId = Math.random().toString(36).slice(2) + '-' + Date.now();
+    let currentUser = null;
+    let firestoreUnsub = null;
+    let cloudSaveTimer = null;
+    let isApplyingRemoteChange = false;
+    let initialCloudLoadDone = false;
 
     // ===== DOM Elements =====
     const $ = (sel) => document.querySelector(sel);
@@ -30,6 +55,12 @@
     const findCount = $('#find-count');
     const fileInput = $('#file-input');
     const previewPane = $('#preview-pane');
+    const statusSync = $('#status-sync');
+    const userInfo = $('#user-info');
+    const userAvatar = $('#user-avatar');
+    const userName = $('#user-name');
+    const btnLogin = $('#btn-login');
+    const btnLogout = $('#btn-logout');
 
     // ===== Tab Management =====
     function createTab(name = null, content = '') {
@@ -592,6 +623,7 @@
         autoSaveTimer = setTimeout(() => {
             saveToLocalStorage();
         }, 1000);
+        scheduleCloudSave();
     }
 
     function saveToLocalStorage() {
@@ -678,6 +710,211 @@
         }
     }
 
+    // ===== Firebase Sync =====
+    function setSyncStatus(state, text) {
+        if (!statusSync) return;
+        statusSync.classList.remove('syncing', 'synced', 'error');
+        if (state) statusSync.classList.add(state);
+        statusSync.textContent = text || '';
+    }
+
+    function updateAuthUI() {
+        if (currentUser) {
+            btnLogin.classList.add('hidden');
+            userInfo.classList.remove('hidden');
+            userAvatar.src = currentUser.photoURL || '';
+            userAvatar.style.display = currentUser.photoURL ? '' : 'none';
+            userName.textContent = currentUser.displayName || currentUser.email || '사용자';
+        } else {
+            btnLogin.classList.remove('hidden');
+            userInfo.classList.add('hidden');
+        }
+    }
+
+    function login() {
+        if (!auth) {
+            showToast('Firebase 초기화 실패', 'warning');
+            return;
+        }
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).catch(e => {
+            console.warn('Login failed:', e);
+            showToast('로그인 실패: ' + (e.message || e.code), 'warning');
+        });
+    }
+
+    function logout() {
+        if (!auth) return;
+        auth.signOut().then(() => {
+            showToast('로그아웃되었습니다');
+        });
+    }
+
+    function buildCloudPayload() {
+        // Sync current editor content to active tab first
+        const current = getTab(activeTabId);
+        if (current) current.content = editor.value;
+
+        return {
+            tabs: tabs.map(t => ({
+                id: t.id,
+                name: t.name,
+                content: t.content,
+                originalContent: t.originalContent
+            })),
+            activeTabId,
+            tabCounter,
+            wordWrap,
+            fontSize,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAtClient: Date.now(),
+            clientId
+        };
+    }
+
+    function applyRemoteData(data) {
+        if (!data || !Array.isArray(data.tabs)) return;
+
+        isApplyingRemoteChange = true;
+        try {
+            // Save current editor state to active tab before rebuild (so unsaved local input not in remote isn't lost — but remote wins on conflicting tab content)
+            // We simply replace state with remote.
+            tabs = [];
+            tabsContainer.innerHTML = '';
+            tabCounter = data.tabCounter || 0;
+
+            data.tabs.forEach(t => {
+                const tab = {
+                    id: t.id,
+                    name: t.name,
+                    content: t.content || '',
+                    originalContent: t.originalContent || t.content || '',
+                    cursorPos: { start: 0, end: 0 },
+                    scrollTop: 0,
+                    scrollLeft: 0
+                };
+                tabs.push(tab);
+                renderTab(tab);
+            });
+
+            if (typeof data.wordWrap === 'boolean') {
+                wordWrap = data.wordWrap;
+                editor.classList.toggle('word-wrap', wordWrap);
+                $('#btn-wordwrap').classList.toggle('active', wordWrap);
+                lineNumbers.style.display = wordWrap ? 'none' : '';
+            }
+
+            if (typeof data.fontSize === 'number') {
+                setFontSize(data.fontSize);
+            }
+
+            if (tabs.length === 0) {
+                createTab();
+            } else {
+                const targetId = data.activeTabId && tabs.find(t => t.id === data.activeTabId)
+                    ? data.activeTabId
+                    : tabs[0].id;
+                activeTabId = null;
+                switchTab(targetId);
+            }
+
+            // Persist locally too
+            saveToLocalStorage();
+        } finally {
+            isApplyingRemoteChange = false;
+        }
+    }
+
+    async function loadFromFirestoreOnce() {
+        if (!currentUser || !db) return false;
+        try {
+            setSyncStatus('syncing', '☁ 불러오는 중');
+            const snap = await db.collection('users').doc(currentUser.uid).get();
+            if (snap.exists) {
+                applyRemoteData(snap.data());
+                setSyncStatus('synced', '☁ 동기화됨');
+                return true;
+            } else {
+                // First login on this account: upload current local state
+                setSyncStatus('synced', '☁ 새 클라우드');
+                await saveToFirestore();
+                return false;
+            }
+        } catch (e) {
+            console.warn('Firestore load failed:', e);
+            setSyncStatus('error', '☁ 로드 실패');
+            return false;
+        }
+    }
+
+    function subscribeToFirestore() {
+        if (!currentUser || !db) return;
+        if (firestoreUnsub) firestoreUnsub();
+        firestoreUnsub = db.collection('users').doc(currentUser.uid)
+            .onSnapshot((doc) => {
+                if (!doc.exists) return;
+                if (doc.metadata.hasPendingWrites) return; // Our own pending write
+                if (!initialCloudLoadDone) return; // Skip until initial load done
+                const data = doc.data();
+                if (data && data.clientId === clientId) return; // Self-echo from our own committed write
+                applyRemoteData(data);
+            }, (e) => {
+                console.warn('Firestore listener error:', e);
+                setSyncStatus('error', '☁ 연결 끊김');
+            });
+    }
+
+    function unsubscribeFromFirestore() {
+        if (firestoreUnsub) {
+            firestoreUnsub();
+            firestoreUnsub = null;
+        }
+    }
+
+    function scheduleCloudSave() {
+        if (!currentUser || !db) return;
+        if (isApplyingRemoteChange) return;
+        clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = setTimeout(() => {
+            saveToFirestore();
+        }, 1500);
+    }
+
+    async function saveToFirestore() {
+        if (!currentUser || !db) return;
+        if (isApplyingRemoteChange) return;
+        try {
+            setSyncStatus('syncing', '☁ 저장 중');
+            const payload = buildCloudPayload();
+            await db.collection('users').doc(currentUser.uid).set(payload, { merge: false });
+            setSyncStatus('synced', '☁ 동기화됨');
+        } catch (e) {
+            console.warn('Firestore save failed:', e);
+            setSyncStatus('error', '☁ 저장 실패');
+        }
+    }
+
+    function setupAuth() {
+        if (!auth) {
+            setSyncStatus('error', '☁ 사용 불가');
+            return;
+        }
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user;
+            updateAuthUI();
+            if (user) {
+                initialCloudLoadDone = false;
+                await loadFromFirestoreOnce();
+                initialCloudLoadDone = true;
+                subscribeToFirestore();
+            } else {
+                unsubscribeFromFirestore();
+                initialCloudLoadDone = false;
+                setSyncStatus('', '');
+            }
+        });
+    }
+
     // ===== Toast =====
     function showToast(message, type = '') {
         // Remove existing
@@ -758,6 +995,8 @@
         $('#btn-font-increase').addEventListener('click', increaseFontSize);
         $('#btn-font-decrease').addEventListener('click', decreaseFontSize);
         $('#btn-preview').addEventListener('click', togglePreview);
+        if (btnLogin) btnLogin.addEventListener('click', login);
+        if (btnLogout) btnLogout.addEventListener('click', logout);
 
         // File input
         fileInput.addEventListener('change', handleFileSelect);
@@ -806,6 +1045,7 @@
         loadTheme();
         bindEvents();
         setupDragDrop();
+        setupAuth();
 
         // Try to restore from LocalStorage
         const restored = loadFromLocalStorage();

@@ -97,6 +97,28 @@
                 </div>
             </div>
             <div class="toolbar-right">
+                <div id="user-info" class="user-info hidden">
+                    <img id="user-avatar" class="user-avatar" alt="" referrerpolicy="no-referrer">
+                    <span id="user-name" class="user-name"></span>
+                    <button id="btn-logout" class="toolbar-btn icon-only" title="로그아웃">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                    </button>
+                </div>
+                <button id="btn-login" class="toolbar-btn" title="Google 로그인 (다른 컴퓨터와 메모 동기화)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                        <polyline points="10 17 15 12 10 7" />
+                        <line x1="15" y1="12" x2="3" y2="12" />
+                    </svg>
+                    <span>로그인</span>
+                </button>
+                <div class="toolbar-divider"></div>
                 <button id="btn-theme" class="toolbar-btn icon-only" title="테마 전환">
                     <svg id="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                         stroke-width="2">
@@ -168,6 +190,8 @@
             </div>
             <div class="status-right">
                 <span id="status-modified"></span>
+                <span id="status-sync" class="status-sync"></span>
+                <span class="status-divider">|</span>
                 <span id="status-encoding">UTF-8</span>
                 <span class="status-divider">|</span>
                 <span id="status-saved">자동 저장됨</span>
@@ -181,6 +205,9 @@
         style="display:none">
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="app.js"></script>
 </body>
 
