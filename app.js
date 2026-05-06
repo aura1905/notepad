@@ -1,4 +1,4 @@
-/* ===== Aura Notepad - Main Application ===== */
+/* ===== Nabi Notepad - Main Application ===== */
 
 // ===== Firebase Config =====
 const firebaseConfig = {
@@ -1050,7 +1050,7 @@ if (typeof firebase !== 'undefined') {
         // Try to restore from LocalStorage
         const restored = loadFromLocalStorage();
         if (!restored) {
-            createTab('환영합니다.txt', `🎉 Aura Notepad에 오신 것을 환영합니다!
+            createTab('환영합니다.txt', `🎉 Nabi Notepad에 오신 것을 환영합니다!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   기본 사용법

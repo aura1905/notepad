@@ -1,4 +1,4 @@
-# Aura Notepad
+# Nabi Notepad
 
 웹 기반 메모장. 빌드 도구 없이 정적 파일 3개로 구성됨. GitHub Pages로 배포.
 
