@@ -77,13 +77,22 @@ if (typeof firebase !== 'undefined') {
         if (typeof HyperMD === 'undefined' || typeof CodeMirror === 'undefined') {
             return null;
         }
+        // Make container visible BEFORE mounting so CodeMirror can compute layout correctly
+        const wasHidden = mdContainer.classList.contains('hidden');
+        if (wasHidden) mdContainer.classList.remove('hidden');
+
         mdEditor = HyperMD.fromTextArea(mdSource, {
             lineNumbers: false,
-            gutters: [],
-            foldGutter: false,
+            mode: { name: 'hypermd', hashtag: true },
+            hmdFold: { image: true, link: true, code: true, math: false, html: false, emoji: true },
             autoCloseBrackets: true,
-            lineWrapping: true
+            lineWrapping: true,
+            gutters: [],
+            foldGutter: false
         });
+
+        if (wasHidden) mdContainer.classList.add('hidden');
+
         mdEditor.on('change', () => {
             if (isApplyingRemoteChange) return;
             const tab = getTab(activeTabId);
@@ -175,6 +184,9 @@ if (typeof firebase !== 'undefined') {
             el.classList.toggle('active', el.dataset.id === id);
         });
 
+        if (btnMdMode) btnMdMode.classList.toggle('active', !!tab.mdMode);
+        updatePreviewLayout();
+
         if (tab.mdMode) {
             const cm = ensureMdEditor();
             if (cm) {
@@ -183,6 +195,8 @@ if (typeof firebase !== 'undefined') {
             } else {
                 // HyperMD not loaded — fall back to text mode for this tab
                 tab.mdMode = false;
+                if (btnMdMode) btnMdMode.classList.remove('active');
+                updatePreviewLayout();
                 editor.value = tab.content;
                 editor.focus();
                 showToast('마크다운 에디터 로드 실패, 텍스트 모드로 전환', 'warning');
@@ -196,11 +210,8 @@ if (typeof firebase !== 'undefined') {
             editor.focus();
         }
 
-        if (btnMdMode) btnMdMode.classList.toggle('active', !!tab.mdMode);
-
         updateLineNumbers();
         updateStatusBar();
-        updatePreviewLayout();
         renderPreview();
     }
 

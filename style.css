@@ -563,17 +563,21 @@ body {
 
 #md-editor-container .CodeMirror {
     flex: 1;
-    height: 100%;
+    height: auto;
+    min-height: 100%;
     background: var(--editor-bg);
     color: var(--text-primary);
     font-family: var(--font-mono);
     font-size: 13px;
     line-height: 1.6;
-    padding: 12px 16px;
 }
 
 #md-editor-container .CodeMirror-scroll {
-    padding: 0;
+    padding: 12px 0;
+}
+
+#md-editor-container .CodeMirror-lines {
+    padding: 0 16px;
 }
 
 #md-editor-container .CodeMirror-gutters {
