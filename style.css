@@ -548,6 +548,116 @@ body {
     background: var(--accent-dim);
 }
 
+/* ===== Markdown Live Editor (HyperMD) ===== */
+#md-editor-container {
+    flex: 1;
+    overflow: hidden;
+    background: var(--editor-bg);
+    display: flex;
+    flex-direction: column;
+}
+
+#md-editor-container.hidden {
+    display: none;
+}
+
+#md-editor-container .CodeMirror {
+    flex: 1;
+    height: 100%;
+    background: var(--editor-bg);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 12px 16px;
+}
+
+#md-editor-container .CodeMirror-scroll {
+    padding: 0;
+}
+
+#md-editor-container .CodeMirror-gutters {
+    background: var(--line-num-bg);
+    border-right: 1px solid var(--border);
+}
+
+#md-editor-container .CodeMirror-linenumber {
+    color: var(--line-num-color);
+}
+
+#md-editor-container .CodeMirror-cursor {
+    border-left-color: var(--text-primary);
+}
+
+#md-editor-container .CodeMirror-selected {
+    background: var(--accent-dim) !important;
+}
+
+#md-editor-container .CodeMirror-focused .CodeMirror-selected {
+    background: var(--accent-dim) !important;
+}
+
+/* HyperMD rendered headings, bold, etc. */
+[data-theme="dark"] #md-editor-container .cm-header,
+#md-editor-container .cm-header {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+#md-editor-container .cm-header-1 { font-size: 1.6em; }
+#md-editor-container .cm-header-2 { font-size: 1.35em; }
+#md-editor-container .cm-header-3 { font-size: 1.18em; }
+
+#md-editor-container .cm-strong {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+#md-editor-container .cm-em {
+    color: var(--text-primary);
+    font-style: italic;
+}
+
+#md-editor-container .cm-link {
+    color: var(--accent);
+}
+
+#md-editor-container .cm-url {
+    color: var(--text-muted);
+}
+
+#md-editor-container .cm-quote {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+#md-editor-container .cm-comment,
+#md-editor-container .cm-inline-code {
+    background: var(--bg-surface);
+    color: var(--accent);
+    padding: 0 4px;
+    border-radius: 3px;
+}
+
+#md-editor-container .HyperMD-quote {
+    border-left: 3px solid var(--accent);
+    padding-left: 8px;
+}
+
+#md-editor-container .HyperMD-hr {
+    color: var(--border);
+}
+
+#md-editor-container .cm-formatting {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+#btn-mdmode.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+}
+
 /* ===== Preview Pane ===== */
 #preview-pane {
     flex: 1;

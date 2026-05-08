@@ -11,6 +11,10 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/fold/foldgutter.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hypermd@0.3.11/mode/hypermd.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hypermd@0.3.11/theme/hypermd-light.css">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -94,6 +98,15 @@
                         </svg>
                         <span>프리뷰</span>
                     </button>
+                    <button id="btn-mdmode" class="toolbar-btn" title="마크다운 라이브 편집 모드 (Ctrl+M)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M4 4h16v16H4z" />
+                            <path d="M7 16V8l3 5 3-5v8" />
+                            <path d="M17 8v8l-2-2M17 16l2-2" />
+                        </svg>
+                        <span>MD 편집</span>
+                    </button>
                 </div>
             </div>
             <div class="toolbar-right">
@@ -176,6 +189,9 @@
             <div id="line-numbers"></div>
             <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off"
                 autocapitalize="off"></textarea>
+            <div id="md-editor-container" class="hidden">
+                <textarea id="md-source" style="display:none"></textarea>
+            </div>
             <div id="preview-pane" class="hidden"></div>
         </div>
 
@@ -205,6 +221,14 @@
         style="display:none">
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/fold/foldcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/fold/foldgutter.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/fold/markdown-fold.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/closebrackets.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/markdown/markdown.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/meta.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hypermd@0.3.11/ai1.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>

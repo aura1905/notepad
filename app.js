@@ -61,6 +61,47 @@ if (typeof firebase !== 'undefined') {
     const userName = $('#user-name');
     const btnLogin = $('#btn-login');
     const btnLogout = $('#btn-logout');
+    const btnMdMode = $('#btn-mdmode');
+    const mdContainer = $('#md-editor-container');
+    const mdSource = $('#md-source');
+    let mdEditor = null;
+
+    // ===== Markdown helpers =====
+    function isMdName(name) {
+        if (!name) return false;
+        return /\.(md|markdown|mdx)$/i.test(name);
+    }
+
+    function ensureMdEditor() {
+        if (mdEditor) return mdEditor;
+        if (typeof HyperMD === 'undefined' || typeof CodeMirror === 'undefined') {
+            return null;
+        }
+        mdEditor = HyperMD.fromTextArea(mdSource, {
+            lineNumbers: false,
+            gutters: [],
+            foldGutter: false,
+            autoCloseBrackets: true,
+            lineWrapping: true
+        });
+        mdEditor.on('change', () => {
+            if (isApplyingRemoteChange) return;
+            const tab = getTab(activeTabId);
+            if (!tab || !tab.mdMode) return;
+            tab.content = mdEditor.getValue();
+            updateTabModified(tab);
+            updateStatusBar();
+            renderPreview();
+            scheduleAutoSave();
+        });
+        mdEditor.on('cursorActivity', updateStatusBar);
+        return mdEditor;
+    }
+
+    function isMdActive() {
+        const tab = getTab(activeTabId);
+        return !!(tab && tab.mdMode);
+    }
 
     // ===== Tab Management =====
     function createTab(name = null, content = '') {
@@ -73,7 +114,8 @@ if (typeof firebase !== 'undefined') {
             originalContent: content,
             cursorPos: { start: 0, end: 0 },
             scrollTop: 0,
-            scrollLeft: 0
+            scrollLeft: 0,
+            mdMode: isMdName(name)
         };
         tabs.push(tab);
         renderTab(tab);
@@ -109,14 +151,18 @@ if (typeof firebase !== 'undefined') {
     }
 
     function switchTab(id) {
-        // Save current tab state
+        // Save current tab state from whichever editor was active
         if (activeTabId) {
             const current = getTab(activeTabId);
             if (current) {
-                current.content = editor.value;
-                current.cursorPos = { start: editor.selectionStart, end: editor.selectionEnd };
-                current.scrollTop = editor.scrollTop;
-                current.scrollLeft = editor.scrollLeft;
+                if (current.mdMode && mdEditor) {
+                    current.content = mdEditor.getValue();
+                } else {
+                    current.content = editor.value;
+                    current.cursorPos = { start: editor.selectionStart, end: editor.selectionEnd };
+                    current.scrollTop = editor.scrollTop;
+                    current.scrollLeft = editor.scrollLeft;
+                }
             }
         }
 
@@ -124,18 +170,33 @@ if (typeof firebase !== 'undefined') {
         const tab = getTab(id);
         if (!tab) return;
 
-        // Update editor
-        editor.value = tab.content;
-        editor.selectionStart = tab.cursorPos.start;
-        editor.selectionEnd = tab.cursorPos.end;
-        editor.scrollTop = tab.scrollTop;
-        editor.scrollLeft = tab.scrollLeft;
-        editor.focus();
-
         // Update tab UI
         document.querySelectorAll('.tab').forEach(el => {
             el.classList.toggle('active', el.dataset.id === id);
         });
+
+        if (tab.mdMode) {
+            const cm = ensureMdEditor();
+            if (cm) {
+                cm.setValue(tab.content || '');
+                setTimeout(() => { cm.refresh(); cm.focus(); }, 0);
+            } else {
+                // HyperMD not loaded — fall back to text mode for this tab
+                tab.mdMode = false;
+                editor.value = tab.content;
+                editor.focus();
+                showToast('마크다운 에디터 로드 실패, 텍스트 모드로 전환', 'warning');
+            }
+        } else {
+            editor.value = tab.content;
+            editor.selectionStart = tab.cursorPos.start;
+            editor.selectionEnd = tab.cursorPos.end;
+            editor.scrollTop = tab.scrollTop;
+            editor.scrollLeft = tab.scrollLeft;
+            editor.focus();
+        }
+
+        if (btnMdMode) btnMdMode.classList.toggle('active', !!tab.mdMode);
 
         updateLineNumbers();
         updateStatusBar();
@@ -143,9 +204,36 @@ if (typeof firebase !== 'undefined') {
         renderPreview();
     }
 
+    function toggleMdMode() {
+        const tab = getTab(activeTabId);
+        if (!tab) return;
+        // Save current content from whichever editor before flipping
+        if (tab.mdMode && mdEditor) {
+            tab.content = mdEditor.getValue();
+        } else {
+            tab.content = editor.value;
+        }
+        tab.mdMode = !tab.mdMode;
+        // Force re-render via switchTab
+        const id = activeTabId;
+        activeTabId = null;
+        switchTab(id);
+        scheduleAutoSave();
+        showToast(tab.mdMode ? '마크다운 라이브 편집 모드' : '텍스트 모드');
+    }
+
     function closeTab(id) {
         const tab = getTab(id);
         if (!tab) return;
+
+        // Sync content from active editor if closing active tab
+        if (id === activeTabId) {
+            if (tab.mdMode && mdEditor) {
+                tab.content = mdEditor.getValue();
+            } else {
+                tab.content = editor.value;
+            }
+        }
 
         // Check if modified
         if (tab.content !== tab.originalContent) {
@@ -281,21 +369,26 @@ if (typeof firebase !== 'undefined') {
     }
 
     function updateStatusBar() {
-        const text = editor.value;
-        const pos = editor.selectionStart;
-
-        // Calculate line and column
-        const beforeCursor = text.substring(0, pos);
-        const lines = beforeCursor.split('\n');
-        const line = lines.length;
-        const col = lines[lines.length - 1].length + 1;
+        const tab = getTab(activeTabId);
+        let text, line, col;
+        if (tab && tab.mdMode && mdEditor) {
+            text = mdEditor.getValue();
+            const cursor = mdEditor.getCursor();
+            line = cursor.line + 1;
+            col = cursor.ch + 1;
+        } else {
+            text = editor.value;
+            const pos = editor.selectionStart;
+            const beforeCursor = text.substring(0, pos);
+            const lines = beforeCursor.split('\n');
+            line = lines.length;
+            col = lines[lines.length - 1].length + 1;
+        }
 
         statusPosition.textContent = `줄 ${line}, 열 ${col}`;
         statusChars.textContent = `${text.length.toLocaleString()} 글자`;
         statusLines.textContent = `${text.split('\n').length} 줄`;
 
-        // Modified indicator
-        const tab = getTab(activeTabId);
         if (tab) {
             updateTabModified(tab);
         }
@@ -361,9 +454,10 @@ if (typeof firebase !== 'undefined') {
 
         if (wordWrap) {
             lineNumbers.style.display = 'none';
-        } else {
+        } else if (!isMdActive()) {
             lineNumbers.style.display = '';
         }
+        if (mdEditor) mdEditor.setOption('lineWrapping', wordWrap);
         showToast(wordWrap ? '자동 줄 바꿈 켜짐' : '자동 줄 바꿈 꺼짐');
     }
 
@@ -373,6 +467,8 @@ if (typeof firebase !== 'undefined') {
         editor.style.fontSize = fontSize + 'px';
         lineNumbers.style.fontSize = fontSize + 'px';
         $('#font-size-display').textContent = fontSize + 'px';
+        if (mdContainer) mdContainer.style.fontSize = fontSize + 'px';
+        if (mdEditor) mdEditor.refresh();
         updateLineNumbers();
         scheduleAutoSave();
     }
@@ -407,19 +503,32 @@ if (typeof firebase !== 'undefined') {
         const btn = $('#btn-preview');
         btn.classList.toggle('active', previewMode !== 'off');
 
-        if (previewMode === 'off') {
-            editor.style.display = '';
-            lineNumbers.style.display = wordWrap ? 'none' : '';
-            previewPane.classList.add('hidden');
-            previewPane.classList.remove('fullscreen');
-        } else if (previewMode === 'split') {
-            editor.style.display = '';
-            lineNumbers.style.display = wordWrap ? 'none' : '';
-            previewPane.classList.remove('hidden');
-            previewPane.classList.remove('fullscreen');
+        const inMdMode = isMdActive();
+        const showWriting = previewMode !== 'full';
+
+        if (showWriting) {
+            if (inMdMode) {
+                editor.style.display = 'none';
+                lineNumbers.style.display = 'none';
+                mdContainer.classList.remove('hidden');
+            } else {
+                editor.style.display = '';
+                lineNumbers.style.display = wordWrap ? 'none' : '';
+                mdContainer.classList.add('hidden');
+            }
         } else {
             editor.style.display = 'none';
             lineNumbers.style.display = 'none';
+            mdContainer.classList.add('hidden');
+        }
+
+        if (previewMode === 'off') {
+            previewPane.classList.add('hidden');
+            previewPane.classList.remove('fullscreen');
+        } else if (previewMode === 'split') {
+            previewPane.classList.remove('hidden');
+            previewPane.classList.remove('fullscreen');
+        } else {
             previewPane.classList.remove('hidden');
             previewPane.classList.add('fullscreen');
         }
@@ -428,8 +537,8 @@ if (typeof firebase !== 'undefined') {
     function renderPreview() {
         if (previewMode === 'off') return;
 
-        const content = editor.value;
         const tab = getTab(activeTabId);
+        const content = (tab && tab.mdMode && mdEditor) ? mdEditor.getValue() : editor.value;
         const name = tab ? tab.name.toLowerCase() : '';
 
         if (name.endsWith('.json')) {
@@ -627,10 +736,14 @@ if (typeof firebase !== 'undefined') {
     }
 
     function saveToLocalStorage() {
-        // Save current editor content
+        // Save current editor content from whichever editor is active
         const current = getTab(activeTabId);
         if (current) {
-            current.content = editor.value;
+            if (current.mdMode && mdEditor) {
+                current.content = mdEditor.getValue();
+            } else {
+                current.content = editor.value;
+            }
         }
 
         const data = {
@@ -638,7 +751,8 @@ if (typeof firebase !== 'undefined') {
                 id: t.id,
                 name: t.name,
                 content: t.content,
-                originalContent: t.originalContent
+                originalContent: t.originalContent,
+                mdMode: !!t.mdMode
             })),
             activeTabId,
             tabCounter,
@@ -679,7 +793,8 @@ if (typeof firebase !== 'undefined') {
                     originalContent: t.originalContent || t.content,
                     cursorPos: { start: 0, end: 0 },
                     scrollTop: 0,
-                    scrollLeft: 0
+                    scrollLeft: 0,
+                    mdMode: typeof t.mdMode === 'boolean' ? t.mdMode : isMdName(t.name)
                 };
                 tabs.push(tab);
                 renderTab(tab);
@@ -753,14 +868,21 @@ if (typeof firebase !== 'undefined') {
     function buildCloudPayload() {
         // Sync current editor content to active tab first
         const current = getTab(activeTabId);
-        if (current) current.content = editor.value;
+        if (current) {
+            if (current.mdMode && mdEditor) {
+                current.content = mdEditor.getValue();
+            } else {
+                current.content = editor.value;
+            }
+        }
 
         return {
             tabs: tabs.map(t => ({
                 id: t.id,
                 name: t.name,
                 content: t.content,
-                originalContent: t.originalContent
+                originalContent: t.originalContent,
+                mdMode: !!t.mdMode
             })),
             activeTabId,
             tabCounter,
@@ -791,7 +913,8 @@ if (typeof firebase !== 'undefined') {
                     originalContent: t.originalContent || t.content || '',
                     cursorPos: { start: 0, end: 0 },
                     scrollTop: 0,
-                    scrollLeft: 0
+                    scrollLeft: 0,
+                    mdMode: typeof t.mdMode === 'boolean' ? t.mdMode : isMdName(t.name)
                 };
                 tabs.push(tab);
                 renderTab(tab);
@@ -974,6 +1097,9 @@ if (typeof firebase !== 'undefined') {
         } else if (ctrl && e.key === 'p') {
             e.preventDefault();
             togglePreview();
+        } else if (ctrl && e.key === 'm') {
+            e.preventDefault();
+            toggleMdMode();
         } else if (e.key === 'Escape') {
             if (!findPanel.classList.contains('hidden')) {
                 findPanel.classList.add('hidden');
@@ -995,6 +1121,7 @@ if (typeof firebase !== 'undefined') {
         $('#btn-font-increase').addEventListener('click', increaseFontSize);
         $('#btn-font-decrease').addEventListener('click', decreaseFontSize);
         $('#btn-preview').addEventListener('click', togglePreview);
+        if (btnMdMode) btnMdMode.addEventListener('click', toggleMdMode);
         if (btnLogin) btnLogin.addEventListener('click', login);
         if (btnLogout) btnLogout.addEventListener('click', logout);
 
